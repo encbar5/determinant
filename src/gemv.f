@@ -20,6 +20,9 @@
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
               double precision :: starttime, laptime, stoptime ! for Wtime
+              
+              integer, allocatable :: seed(:) ! random seed array
+              integer :: randsize, r
 
         ! get problem size from input 
               call get_command_argument(1, arg)
@@ -71,7 +74,14 @@
               allocate(myA(myArows,myAcols)) 
               allocate(myX(myXrows)) 
         
-              call random_seed()
+            ! get random seed
+              call random_seed(size=randsize)
+              allocate(seed(randsize))
+              do r=1,randsize
+                  call system_clock(seed(r))
+              enddo
+              call random_seed(put=seed)
+
               call random_number(myA)
               myA = myA - 0.5d+0
               !myA = 0.d+0
