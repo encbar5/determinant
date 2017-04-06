@@ -7,7 +7,8 @@
               integer :: myArows, myAcols   ! size of local subset of global matrix
               integer :: myXrows, myXcols   ! size of local subset of global vector
               integer :: i,j, myi, myj
-              double precision, dimension(:,:), allocatable :: myA, myX
+              double precision, dimension(:,:), allocatable :: myA
+              integer, dimension(:), allocatable :: myX
               integer :: ierr
               character (len=10) :: arg
         
@@ -20,13 +21,9 @@
               double precision :: starttime, laptime, stoptime ! for Wtime
 
         !get problem size from input 
-              !READ (*,*) n
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
-              !n = 9
 
-        ! try to call subroutine from my module
-              !call printerupi
               starttime = MPI_Wtime()
               laptime = starttime
         ! Initialize blacs processor grid
@@ -47,13 +44,10 @@
               call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
         
         ! Construct local arrays
-        ! Global structure:  matrix A of n rows and n columns
-        
-              !n = 5000
         
         ! blocksize - a free parameter.
         
-              nb = 1000
+              nb = 100
         ! how big is "my" chunk of matrix A?
         
               myArows = numroc(n, nb, myrow, 0, prow)
@@ -61,27 +55,27 @@
         
         ! how big is "my" chunk of vector x?
         
-              myXrows = numroc(n, nb, myrow, 0, prow)
-              myXcols = numroc(n, nb, mycol, 0, pcol)
+              myXrows = numroc(n, nb, myrow, 0, prow) + nb
+              myXcols = 1
         
         if (me == 0) write (*,'(A6I2A3I6)'),'Procs:',procs,' n=',n
 
         ! Initialize local arrays    
         
               allocate(myA(myArows,myAcols)) 
-              allocate(myX(myXrows,myXcols)) 
+              allocate(myX(myXrows)) 
         
-              call random_number(myA)
-              !myA = 0.d+0
-              !do myj=1,myAcols
+              !call random_number(myA)
+              myA = 0.d+0
+              do myj=1,myAcols
                   ! get global index from local index
-              !    call l2g(myj,mycol,n,pcol,nb,j)
-              !    do myi=1,myArows
+                  call l2g(myj,mycol,n,pcol,nb,j)
+                  do myi=1,myArows
                       ! get global index from local index
-              !        call l2g(myi,myrow,n,prow,nb,i)
-              !        if (i <= j) myA(myi,myj) = 1.d+0
-              !    enddo
-              !enddo
+                      call l2g(myi,myrow,n,prow,nb,i)
+                      if (i <= j) myA(myi,myj) = 1.d+0
+                  enddo
+              enddo
 
               !print matrix out
             if (me == 0 .AND. n < 10) then
@@ -94,7 +88,7 @@
             endif
 
 
-              myX = 0.d0
+              myX = 0
 
         
         ! Prepare array descriptors for ScaLAPACK 
@@ -108,16 +102,10 @@
                 print *, 'Setup time: ',stoptime - laptime
                 laptime = stoptime
             endif
+
         ! Call ScaLAPACK library routine
-        !void   pdgemm_ (F_CHAR_T TRANSA, F_CHAR_T TRANSB, int *M, int
-        !*N, int *K, double *ALPHA, double *A, int *IA, int *JA, int
-        !*DESCA, double *B, int *IB, int *JB, int *DESCB, double *BETA,
-        !double *C, int *IC, int *JC, int *DESCC)
-
-        !multiplies A by A^T and stores in X
-
-        call pdgemm('N','T',n,n,n,1.d+0,myA,1,1,ides_a,myA,
-     & 1,1,ides_a,0.d+0,myX,1,1,ides_x)
+        !  SUBROUTINE PDGETRF( M, N, A, IA, JA, DESCA, IPIV, INFO )
+        call pdgetrf(n,n,myA,1,1,ides_a,myX,info)
 
               if (me == 0) then
                 if (info /= 0) then
@@ -125,48 +113,16 @@
                 endif
               endif
         
-              if (me == 0 .AND. n < 10) then
-              print *,'Result'
-              !print matrix out
-              do myi=1,myXrows
-                do myj=1,myXcols 
-                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
-                enddo
-                print *,""
-              enddo
-              endif
-
-        ! Deallocate A
-        
-              deallocate(myA)
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                print *, 'Matrix mult time: ',stoptime - laptime
-                laptime = stoptime
-            endif
-
-        ! Now do Cholesky decomposition
-        ! PDPOTRF (UPLO, N, A, IA, JA, DESCA, INFO)
-        call pdpotrf( 'L', n, myX, 1, 1, ides_x, info )
-
-        !if info is greater than 0 this means that determinant is zero?
-
-              if (me == 0) then
-                if (info /= 0) then
-                     print *, 'Error -- info = ', info
-                endif
-              endif
-        
-              if (me == 0 .AND. n < 10) then
               print *,'Decomposition'
               !print matrix out
-              do myi=1,myXrows
-                do myj=1,myXcols 
-                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
+            if (me == 0 .AND. n < 10) then
+              do myi=1,myArows
+                do myj=1,myAcols 
+                      write (*,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
                 print *,""
               enddo
-              endif
+            endif
             if (me == 0) then
                 stoptime = MPI_Wtime()
                 print *, 'Matrix decomp time: ',stoptime - laptime
@@ -177,11 +133,11 @@
         ! Calculate determinant based on diagonal
 
             det = 1.d+0
-            do myj=1,myXcols
+            do myj=1,myAcols
                 call l2g(myj,mycol,n,pcol,nb,j)
-                do myi=1,myXrows
+                do myi=1,myArows
                     call l2g(myi,myrow,n,prow,nb,i)
-                    if (j == i) det = det * myX(myi,myj)
+                    if (j == i) det = det * myA(myi,myj)
                 enddo
             enddo
 
@@ -208,7 +164,7 @@
             endif
         ! Deallocate X
         
-              deallocate(myX)
+              deallocate(myA)
 
         ! End blacs for processors that are used
         
