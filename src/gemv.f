@@ -71,17 +71,19 @@
               allocate(myA(myArows,myAcols)) 
               allocate(myX(myXrows)) 
         
-              !call random_number(myA)
-              myA = 0.d+0
-              do myj=1,myAcols
+              call random_seed()
+              call random_number(myA)
+              myA = myA - 0.5d+0
+              !myA = 0.d+0
+              !do myj=1,myAcols
                   ! get global index from local index
-                  call l2g(myj,mycol,n,pcol,nb,j)
-                  do myi=1,myArows
+              !    call l2g(myj,mycol,n,pcol,nb,j)
+              !    do myi=1,myArows
                       ! get global index from local index
-                      call l2g(myi,myrow,n,prow,nb,i)
-                      if (i <= j) myA(myi,myj) = 1.d+0
-                  enddo
-              enddo
+              !        call l2g(myi,myrow,n,prow,nb,i)
+              !        if (i <= j) myA(myi,myj) = 1.d+0
+              !    enddo
+              !enddo
 
               !print matrix out
             if (me == 0 .AND. n < 10) then
@@ -121,9 +123,9 @@
                 endif
               endif
         
-              print *,'Decomposition'
               !print matrix out
             if (me == 0 .AND. n < 10) then
+              print *,'Decomposition'
               do myi=1,myArows
                 do myj=1,myAcols 
                       write (*,"(f8.3)",advance="no"),myA(myi,myj)
@@ -165,10 +167,6 @@
               call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_PROD, 0,
      &  MPI_COMM_WORLD, ierr)
         
-              if (me == 0) then
-                !print *,'Determinant = ', globdet
-              endif
-        
             if (me == 0) then
                 stoptime = MPI_Wtime()
                 write (*,"("//fmtstr//"a1)",advance="no"),
@@ -178,7 +176,7 @@
             endif
         ! Deallocate X
         
-              deallocate(myA)
+              deallocate(myA,myX)
 
         ! End blacs for processors that are used
         
@@ -190,6 +188,11 @@
                 write (*,"("//fmtstr//")"),stoptime - starttime
                 !print *, 'Total time: ',stoptime - starttime
             endif
+
+            if (me == 0) then
+              print *,'Determinant = ', globdet
+            endif
+        
 
         contains
         
