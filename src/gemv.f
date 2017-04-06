@@ -1,28 +1,38 @@
         program gemv1
               use mpi
-              use example
+              !use example
               implicit none
         
               integer :: n, nb    ! problem size and block size
               integer :: myArows, myAcols   ! size of local subset of global matrix
               integer :: myXrows, myXcols   ! size of local subset of global vector
               integer :: i,j, myi, myj
-              real, dimension(:,:), allocatable :: myA,myX,myY
+              double precision, dimension(:,:), allocatable :: myA, myX
               integer :: ierr
+              character (len=10) :: arg
         
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
               integer :: info    ! scalapack return value
-              integer, dimension(9)   :: ides_a, ides_x, ides_y ! matrix descriptors
+              integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
-              real :: error, globerror
-        
+              double precision :: det, globdet ! determinant and global
+              double precision :: starttime, laptime, stoptime ! for Wtime
+
+        !get problem size from input 
+              !READ (*,*) n
+              call get_command_argument(1, arg)
+              READ (arg(:),'(i10)') n
+              !n = 9
+
         ! try to call subroutine from my module
-              call printerup
+              !call printerupi
+              starttime = MPI_Wtime()
+              laptime = starttime
         ! Initialize blacs processor grid
         
-              call blacs_pinfo   (me,procs)
-        
+              call blacs_pinfo  (me,procs)
+
         ! create as square as possible a grid of processors
         
               dims = 0
@@ -39,12 +49,11 @@
         ! Construct local arrays
         ! Global structure:  matrix A of n rows and n columns
         
-              n = int(2500.*sqrt(dble(procs)))
+              !n = 5000
         
         ! blocksize - a free parameter.
         
-              nb = 100
-        
+              nb = 1000
         ! how big is "my" chunk of matrix A?
         
               myArows = numroc(n, nb, myrow, 0, prow)
@@ -53,83 +62,164 @@
         ! how big is "my" chunk of vector x?
         
               myXrows = numroc(n, nb, myrow, 0, prow)
-              myXcols = 1
+              myXcols = numroc(n, nb, mycol, 0, pcol)
         
+        if (me == 0) write (*,'(A6I2A3I6)'),'Procs:',procs,' n=',n
+
         ! Initialize local arrays    
         
               allocate(myA(myArows,myAcols)) 
               allocate(myX(myXrows,myXcols)) 
-              allocate(myY(myXrows,myXcols)) 
         
-              myA = 0.
-              do myj=1,myAcols
+              call random_number(myA)
+              !myA = 0.d+0
+              !do myj=1,myAcols
                   ! get global index from local index
-                  call l2g(myj,mycol,n,pcol,nb,j)
-                  do myi=1,myArows
+              !    call l2g(myj,mycol,n,pcol,nb,j)
+              !    do myi=1,myArows
                       ! get global index from local index
-                      call l2g(myi,myrow,n,prow,nb,i)
-                      if (i == j) myA(myi,myj) = i
-                  enddo
+              !        call l2g(myi,myrow,n,prow,nb,i)
+              !        if (i <= j) myA(myi,myj) = 1.d+0
+              !    enddo
+              !enddo
+
+              !print matrix out
+            if (me == 0 .AND. n < 10) then
+              do myi=1,myArows
+                do myj=1,myAcols 
+                      write (*,"(3f8.3)",advance="no"),myA(myi,myj)
+                enddo
+                print *,""
               enddo
-        
-              myX = 0.
-              call l2g(1,mycol,n,pcol,nb,j)
-              if (j == 1) then
-                  do myi=1,myXrows
-                      call l2g(myi,myrow,n,prow,nb,i)
-                      myX(myi,1) = 1.
-                  enddo
-              endif
-        
-              myY = 0.
+            endif
+
+
+              myX = 0.d0
+
         
         ! Prepare array descriptors for ScaLAPACK 
+            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt, 
+     & myArows, info )
+            call descinit( ides_x, n, n, nb, nb, 0, 0, icontxt,
+     & myXrows, info )
         
-        call descinit(ides_a, n, n, nb, nb, 0, 0, icontxt, myArows,info)
-        call descinit(ides_x, n, 1, nb, nb, 0, 0, icontxt, myXrows,info)
-        call descinit(ides_y, n, 1, nb, nb, 0, 0, icontxt, myXrows,info)
-        
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Setup time: ',stoptime - laptime
+                laptime = stoptime
+            endif
         ! Call ScaLAPACK library routine
-        
-        call psgemv('N',n,n,1.,mya,1,1,ides_a,myx,1,1,
-     & ides_x,1,0.,myy,1,1,ides_y,1)
+        !void   pdgemm_ (F_CHAR_T TRANSA, F_CHAR_T TRANSB, int *M, int
+        !*N, int *K, double *ALPHA, double *A, int *IA, int *JA, int
+        !*DESCA, double *B, int *IB, int *JB, int *DESCB, double *BETA,
+        !double *C, int *IC, int *JC, int *DESCC)
+
+        !multiplies A by A^T and stores in X
+
+        call pdgemm('N','T',n,n,n,1.d+0,myA,1,1,ides_a,myA,
+     & 1,1,ides_a,0.d+0,myX,1,1,ides_x)
+
               if (me == 0) then
                 if (info /= 0) then
                      print *, 'Error -- info = ', info
                 endif
               endif
         
-        ! Deallocate the local arrays
-        
-              deallocate(myA, myX)
-        
-        ! Print results - Y should be 1,2,3...
-        
-              error = 0.
-              call l2g(1,mycol,n,pcol,nb,j)
-              if (j == 1) then
-                  do myi=1,myXrows
-                      call l2g(myi,myrow,n,prow,nb,i)
-                      error = error + (myY(myi,1)-1.*i)**2.
-                      !print *, myi, myY(myi,1)
-                  enddo
+              if (me == 0 .AND. n < 10) then
+              print *,'Result'
+              !print matrix out
+              do myi=1,myXrows
+                do myj=1,myXcols 
+                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
+                enddo
+                print *,""
+              enddo
               endif
+
+        ! Deallocate A
+        
+              deallocate(myA)
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Matrix mult time: ',stoptime - laptime
+                laptime = stoptime
+            endif
+
+        ! Now do Cholesky decomposition
+        ! PDPOTRF (UPLO, N, A, IA, JA, DESCA, INFO)
+        call pdpotrf( 'L', n, myX, 1, 1, ides_x, info )
+
+        !if info is greater than 0 this means that determinant is zero?
+
+              if (me == 0) then
+                if (info /= 0) then
+                     print *, 'Error -- info = ', info
+                endif
+              endif
+        
+              if (me == 0 .AND. n < 10) then
+              print *,'Decomposition'
+              !print matrix out
+              do myi=1,myXrows
+                do myj=1,myXcols 
+                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
+                enddo
+                print *,""
+              enddo
+              endif
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Matrix decomp time: ',stoptime - laptime
+                laptime = stoptime
+            endif
+
+        
+        ! Calculate determinant based on diagonal
+
+            det = 1.d+0
+            do myj=1,myXcols
+                call l2g(myj,mycol,n,pcol,nb,j)
+                do myi=1,myXrows
+                    call l2g(myi,myrow,n,prow,nb,i)
+                    if (j == i) det = det * myX(myi,myj)
+                enddo
+            enddo
+
+            print *, 'Local determinant ', det, 'proc', me
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Determinant calc time: ',stoptime - laptime
+                laptime = stoptime
+            endif
+        
         
               !    MPI_REDUCE(SENDBUF, RECVBUF, COUNT, DATATYPE, OP, ROOT, COMM, IERROR)
-              call MPI_Reduce(error, globerror, 1, MPI_REAL, MPI_SUM,
-     & 0, MPI_COMM_WORLD, ierr)
+              call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_PROD, 0,
+     &  MPI_COMM_WORLD, ierr)
         
               if (me == 0) then
-                print *,'Y l2 error = ', sqrt(globerror/n)
+                print *,'Determinant = ', globdet
               endif
         
-              deallocate(myY)
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Reduction time: ',stoptime - laptime
+                laptime = stoptime
+            endif
+        ! Deallocate X
         
+              deallocate(myX)
+
         ! End blacs for processors that are used
         
               call blacs_gridexit(icontxt)
               call blacs_exit(0)
         
+            if (me == 0) then
+                stoptime = MPI_Wtime()
+                print *, 'Total time: ',stoptime - starttime
+            endif
+
         contains
         
         ! convert global index to local index in block-cyclic distribution

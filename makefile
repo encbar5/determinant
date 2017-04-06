@@ -12,11 +12,11 @@ LFLAGS = -Wall $(DEBUG)
 LIBS=-lscalapack -lblas
 
 SRC = $(wildcard $(IDIR)/*.f)
-OBJ = $(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))
+OBJ = $(ODIR)/gemv.o #$(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))
 
 
 $(ODIR)/%.o: $(IDIR)/%.f
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) -o $@ $< $(CFLAGS)
 
 $(BIN): $(OBJ)
 	$(CC) -o $@ $^ $(LFLAGS) $(LIBS)
