@@ -10,6 +10,7 @@
               double precision, dimension(:,:), allocatable :: myA, myX
               integer :: ierr
               character (len=10) :: arg
+              character (len=5), parameter :: fmtstr = "e11.5"
         
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
@@ -19,19 +20,20 @@
               double precision :: det, globdet ! determinant and global
               double precision :: starttime, laptime, stoptime ! for Wtime
 
-        !get problem size from input 
-              !READ (*,*) n
+        ! get problem size from input 
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
-              !n = 9
 
-        ! try to call subroutine from my module
-              !call printerupi
+        ! start first timer
               starttime = MPI_Wtime()
               laptime = starttime
+
         ! Initialize blacs processor grid
         
               call blacs_pinfo  (me,procs)
+
+        ! blocksize - a free parameter.
+              nb = 10
 
         ! create as square as possible a grid of processors
         
@@ -39,6 +41,7 @@
               call MPI_Dims_create(procs, 2, dims, ierr)
               prow = dims(1)
               pcol = dims(2)
+              !print *, "prow",prow,"pcol",pcol
         
         ! create the BLACS context
         
@@ -47,32 +50,29 @@
               call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
         
         ! Construct local arrays
-        ! Global structure:  matrix A of n rows and n columns
         
-              !n = 5000
-        
-        ! blocksize - a free parameter.
-        
-              nb = 1000
         ! how big is "my" chunk of matrix A?
         
               myArows = numroc(n, nb, myrow, 0, prow)
               myAcols = numroc(n, nb, mycol, 0, pcol)
+              !print *, "myrows",myarows,"mycols",myacols
         
         ! how big is "my" chunk of vector x?
         
               myXrows = numroc(n, nb, myrow, 0, prow)
               myXcols = numroc(n, nb, mycol, 0, pcol)
         
-        if (me == 0) write (*,'(A6I2A3I6)'),'Procs:',procs,' n=',n
+        if (me == 0) write (*,'(I3A1I4A1)',advance="no"),
+     & procs,',',n,','
 
         ! Initialize local arrays    
         
               allocate(myA(myArows,myAcols)) 
               allocate(myX(myXrows,myXcols)) 
         
+              call random_seed()
               call random_number(myA)
-              !myA = 0.d+0
+              myA = myA - 0.5d+0
               !do myj=1,myAcols
                   ! get global index from local index
               !    call l2g(myj,mycol,n,pcol,nb,j)
@@ -87,14 +87,14 @@
             if (me == 0 .AND. n < 10) then
               do myi=1,myArows
                 do myj=1,myAcols 
-                      write (*,"(3f8.3)",advance="no"),myA(myi,myj)
+                      write (*,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
                 print *,""
               enddo
             endif
 
 
-              myX = 0.d0
+             ! myX = 0.d0
 
         
         ! Prepare array descriptors for ScaLAPACK 
@@ -105,7 +105,9 @@
         
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Setup time: ',stoptime - laptime
+                write (*,"("//fmtstr//"a1)",advance="no"),
+     & stoptime-laptime,','
+                !print *, 'Setup time: ',stoptime-laptime
                 laptime = stoptime
             endif
         ! Call ScaLAPACK library routine
@@ -139,9 +141,12 @@
         ! Deallocate A
         
               deallocate(myA)
+
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Matrix mult time: ',stoptime - laptime
+                write (*,"("//fmtstr//"a1)",advance="no"),
+     & stoptime-laptime,','
+                !print *, 'Matrix mult time: ',stoptime-laptime
                 laptime = stoptime
             endif
 
@@ -162,14 +167,16 @@
               !print matrix out
               do myi=1,myXrows
                 do myj=1,myXcols 
-                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
+                      write (*,"(f8.3)",advance="no"),myX(myi,myj)
                 enddo
                 print *,""
               enddo
               endif
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Matrix decomp time: ',stoptime - laptime
+                write (*,"("//fmtstr//"a1)",advance="no"),
+     & stoptime-laptime,','
+                !print *, 'Matrix decomp time: ',stoptime-laptime
                 laptime = stoptime
             endif
 
@@ -185,10 +192,12 @@
                 enddo
             enddo
 
-            print *, 'Local determinant ', det, 'proc', me
+            !print *, 'Local determinant ', det, 'proc', me
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Determinant calc time: ',stoptime - laptime
+                write (*,"("//fmtstr//"a1)",advance="no"),
+     & stoptime-laptime,','
+                !print *, 'Determinant calc time: ',stoptime-laptime
                 laptime = stoptime
             endif
         
@@ -198,12 +207,14 @@
      &  MPI_COMM_WORLD, ierr)
         
               if (me == 0) then
-                print *,'Determinant = ', globdet
+                !print *,'Determinant = ', globdet
               endif
         
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Reduction time: ',stoptime - laptime
+                write (*,"("//fmtstr//"a1)",advance="no"),
+     & stoptime-laptime,','
+                !print *, 'Reduction time: ',stoptime-laptime
                 laptime = stoptime
             endif
         ! Deallocate X
@@ -217,7 +228,8 @@
         
             if (me == 0) then
                 stoptime = MPI_Wtime()
-                print *, 'Total time: ',stoptime - starttime
+                write (*,"("//fmtstr//")"),stoptime - starttime
+                !print *, 'Total time: ',stoptime - starttime
             endif
 
         contains
