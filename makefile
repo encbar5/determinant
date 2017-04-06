@@ -3,6 +3,9 @@ ODIR=obj
 BIN=det.out
 
 # mpifort -std=f95 gemv.f -lscalapack -lblas
+# module load OpenMPI
+# module load ScaLAPACK
+# module load PETSc
 
 CC=mpifort
 CFLAGS=-I$(IDIR)
