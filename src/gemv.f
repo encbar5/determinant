@@ -12,6 +12,7 @@
               integer :: ierr
               character (len=10) :: arg
               character (len=5), parameter :: fmtstr = "e11.5"
+              character (len=10) :: fname
         
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
@@ -22,7 +23,7 @@
               double precision :: starttime, laptime, stoptime ! for Wtime
               
               integer, allocatable :: seed(:) ! random seed array
-              integer :: randsize, r
+              integer :: randsize
 
         ! get problem size from input 
               call get_command_argument(1, arg)
@@ -36,8 +37,14 @@
         
               call blacs_pinfo  (me,procs)
 
+        ! use file to write extra output
+        if (n < 10) then
+              write (fname, "(A4I1)") "proc", me
+              OPEN (unit=7,file= trim(fname))
+        endif
+
         ! blocksize - a free parameter.
-              nb = 10
+              nb = 4
 
         ! create as square as possible a grid of processors
         
@@ -77,11 +84,10 @@
             ! get random seed
               call random_seed(size=randsize)
               allocate(seed(randsize))
-              do r=1,randsize
-                  call system_clock(seed(r))
-              enddo
+         OPEN(89,FILE='/dev/urandom',ACCESS='stream',FORM='UNFORMATTED')
+              READ(89) seed
+              CLOSE(89)
               call random_seed(put=seed)
-
               call random_number(myA)
               myA = myA - 0.5d+0
               !myA = 0.d+0
@@ -96,12 +102,12 @@
               !enddo
 
               !print matrix out
-            if (me == 0 .AND. n < 10) then
+            if (n < 10) then
               do myi=1,myArows
                 do myj=1,myAcols 
-                      write (*,"(f8.3)",advance="no"),myA(myi,myj)
+                      write (7,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
-                print *,""
+                write (7,"(A1)") ' '
               enddo
             endif
 
@@ -114,7 +120,7 @@
      & myArows, info )
             call descinit( ides_x, n, 1, nb, nb, 0, 0, icontxt,
      & myXrows, info )
-        
+         
             if (me == 0) then
                 stoptime = MPI_Wtime()
                 write (*,"("//fmtstr//"a1)",advance="no"),
@@ -134,14 +140,21 @@
               endif
         
               !print matrix out
-            if (me == 0 .AND. n < 10) then
-              print *,'Decomposition'
+            !if (me == 0 .AND. n < 10) then
+            if (n < 10) then
+              write (7,"(A13)") 'Decomposition'
               do myi=1,myArows
                 do myj=1,myAcols 
-                      write (*,"(f8.3)",advance="no"),myA(myi,myj)
+                      write (7,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
-                print *,""
+                write (7,"(A1)") ' '
               enddo
+
+              write (7, "(A6)") 'Pivots'
+              do myi=1,myXrows
+                write (7, "(i3)",advance="no"),myX(myi)
+              enddo
+              write (7,"(A1)") ' '
             endif
             if (me == 0) then
                 stoptime = MPI_Wtime()
@@ -202,6 +215,8 @@
             if (me == 0) then
               print *,'Determinant = ', globdet
             endif
+
+            close(7)
         
 
         contains
