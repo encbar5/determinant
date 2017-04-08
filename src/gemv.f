@@ -222,10 +222,6 @@
               call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_PROD, 0,
      &  MPI_COMM_WORLD, ierr)
         
-              if (me == 0) then
-                print *,'Determinant = ', globdet
-              endif
-        
             if (me == 0) then
                 stoptime = MPI_Wtime()
                 write (*,"("//fmtstr//"a1)",advance="no"),
@@ -247,6 +243,10 @@
                 write (*,"("//fmtstr//")"),stoptime - starttime
                 !print *, 'Total time: ',stoptime - starttime
             endif
+
+              if (me == 0) then
+                print *,'Determinant = ', globdet
+              endif
 
         contains
         
