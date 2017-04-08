@@ -74,7 +74,7 @@
               myXcols = 1
         
         if (me == 0) write (*,'(I3A1I4A1I4A1)',advance="no"),
-     & procs,',',n,','nb,','
+     & procs,',',n,',',nb,','
 
         ! Initialize local arrays    
         

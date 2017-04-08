@@ -144,8 +144,8 @@
 # * CHANGE oucs001 to your username;
 # * CHANGE en@ou.edu to your e-mail address.
 #
-#SBATCH --output=/home/oucs001/Competition/fortran/output/det_%J_stdout.txt
-#SBATCH --error=/home/oucs001/Competition/fortran/output/det_%J_stderr.txt
+#SBATCH --output=/home/oucs001/Competition/fortran/output/LU/det_%J_stdout.txt
+#SBATCH --error=/home/oucs001/Competition/fortran/output/LU/det_%J_stderr.txt
 #
 # The SBATCH directive below says to run for up to 30 minutes
 # (that is, zero hours plus 30 minutes plus zero seconds) of
@@ -229,5 +229,5 @@ module load ScaLAPACK
 N_PROC=1
 
 for x in 100 500 1000 2000 3000 4000 5000; do
-    mpirun -n $N_PROC --bind-to core /home/oucs001/Competition/fortran/det.out $x
+    mpirun -n $N_PROC --bind-to core /home/oucs001/Competition/fortran/detLU.out $x
 done
