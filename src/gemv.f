@@ -43,9 +43,6 @@
               OPEN (unit=7,file= trim(fname))
         endif
 
-        ! blocksize - a free parameter.
-              nb = 4
-
         ! create as square as possible a grid of processors
         
               dims = 0
@@ -54,6 +51,9 @@
               pcol = dims(2)
               !print *, "prow",prow,"pcol",pcol
         
+        ! blocksize - a free parameter.
+              nb = n/prow
+
         ! create the BLACS context
         
               call blacs_get     (0, 0, icontxt)
@@ -73,8 +73,8 @@
               myXrows = numroc(n, nb, myrow, 0, prow) + nb
               myXcols = 1
         
-        if (me == 0) write (*,'(I3A1I4A1)',advance="no"),
-     & procs,',',n,','
+        if (me == 0) write (*,'(I3A1I4A1I4A1)',advance="no"),
+     & procs,',',n,','nb,','
 
         ! Initialize local arrays    
         
