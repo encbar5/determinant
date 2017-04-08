@@ -11,6 +11,7 @@
               integer :: ierr
               character (len=10) :: arg
               character (len=5), parameter :: fmtstr = "e11.5"
+              character (len=10) :: fname
         
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
@@ -19,8 +20,11 @@
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
               double precision :: starttime, laptime, stoptime ! for Wtime
+              
+              integer, allocatable :: seed(:) ! random seed array
+              integer :: randsize
 
-        ! get problem size from input 
+        ! get problem size from input
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
 
@@ -32,8 +36,14 @@
         
               call blacs_pinfo  (me,procs)
 
+        ! use file to write extra output
+        if (n < 10) then
+              write (fname, "(A4I1)") "proc", me
+              OPEN (unit=7,file= trim(fname))
+        endif
+
         ! blocksize - a free parameter.
-              nb = 10
+              nb = 4
 
         ! create as square as possible a grid of processors
         
@@ -65,12 +75,18 @@
         if (me == 0) write (*,'(I3A1I4A1)',advance="no"),
      & procs,',',n,','
 
-        ! Initialize local arrays    
+        ! Initialize local arrays
         
-              allocate(myA(myArows,myAcols)) 
-              allocate(myX(myXrows,myXcols)) 
+              allocate(myA(myArows,myAcols))
+              allocate(myX(myXrows,myXcols))
         
-              call random_seed()
+            ! get random seed
+              call random_seed(size=randsize)
+              allocate(seed(randsize))
+         OPEN(89,FILE='/dev/urandom',ACCESS='stream',FORM='UNFORMATTED')
+              READ(89) seed
+              CLOSE(89)
+              call random_seed(put=seed)
               call random_number(myA)
               myA = myA - 0.5d+0
               !do myj=1,myAcols
@@ -84,12 +100,12 @@
               !enddo
 
               !print matrix out
-            if (me == 0 .AND. n < 10) then
+            if (n < 10) then
               do myi=1,myArows
-                do myj=1,myAcols 
-                      write (*,"(f8.3)",advance="no"),myA(myi,myj)
+                do myj=1,myAcols
+                      write (7,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
-                print *,""
+                write (7,"(A1)") ' '
               enddo
             endif
 
@@ -97,8 +113,8 @@
              ! myX = 0.d0
 
         
-        ! Prepare array descriptors for ScaLAPACK 
-            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt, 
+        ! Prepare array descriptors for ScaLAPACK
+            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt,
      & myArows, info )
             call descinit( ides_x, n, n, nb, nb, 0, 0, icontxt,
      & myXrows, info )
@@ -127,14 +143,14 @@
                 endif
               endif
         
-              if (me == 0 .AND. n < 10) then
-              print *,'Result'
+              if (n < 10) then
+              write (7,"(A6)"),'Result'
               !print matrix out
               do myi=1,myXrows
-                do myj=1,myXcols 
-                      write (*,"(3f8.3)",advance="no"),myX(myi,myj)
+                do myj=1,myXcols
+                      write (7,"(f8.3)",advance="no"),myX(myi,myj)
                 enddo
-                print *,""
+                write (7,"(A1)") ' '
               enddo
               endif
 
@@ -162,14 +178,14 @@
                 endif
               endif
         
-              if (me == 0 .AND. n < 10) then
-              print *,'Decomposition'
+              if (n < 10) then
+              write (7,"(A13)"),'Decomposition'
               !print matrix out
               do myi=1,myXrows
-                do myj=1,myXcols 
-                      write (*,"(f8.3)",advance="no"),myX(myi,myj)
+                do myj=1,myXcols
+                      write (7,"(f8.3)",advance="no"),myX(myi,myj)
                 enddo
-                print *,""
+                write (7,"(A1)") ' '
               enddo
               endif
             if (me == 0) then
@@ -207,7 +223,7 @@
      &  MPI_COMM_WORLD, ierr)
         
               if (me == 0) then
-                !print *,'Determinant = ', globdet
+                print *,'Determinant = ', globdet
               endif
         
             if (me == 0) then
@@ -245,7 +261,7 @@
            integer, intent(in) :: nb   ! block size, input
            integer, intent(out):: p    ! processor array index, output
            integer, intent(out):: il   ! local array index, output
-           integer :: im1   
+           integer :: im1
         
            im1 = i-1
            p   = mod((im1/nb),np)
@@ -265,7 +281,7 @@
            integer :: np   ! processor array dimension, input
            integer :: nb   ! block size, input
            integer :: i    ! global array index, output
-           integer :: ilm1   
+           integer :: ilm1
         
            ilm1 = il-1
            i    = (((ilm1/nb) * np) + p)*nb + mod(ilm1,nb) + 1
