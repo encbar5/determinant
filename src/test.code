@@ -1,0 +1,13 @@
+!comments here
+      program test
+        use readMatrix
+        implicit none
+        double precision, dimension(:,:), allocatable :: X
+        integer :: n
+
+        n = 16
+        allocate(X(n,n))
+        call readM('input/m0016x0016.bin',n,X)
+
+        print *, X
+        end program test

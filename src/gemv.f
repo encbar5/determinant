@@ -1,6 +1,6 @@
         program gemv1
               use mpi
-              use example
+              use readMatrix
               implicit none
         
               integer :: n, nb    ! problem size and block size
@@ -17,8 +17,6 @@
               integer, dimension(2) :: dims
               real :: error, globerror
         
-        ! try to call subroutine from my module
-              call printerup
         ! Initialize blacs processor grid
         
               call blacs_pinfo   (me,procs)
