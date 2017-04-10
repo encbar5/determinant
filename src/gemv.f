@@ -1,17 +1,19 @@
         program gemv1
               use mpi
-              !use example
+              use readMatrix
               implicit none
         
               integer :: n, nb    ! problem size and block size
               integer :: myArows, myAcols   ! size of local subset of global matrix
               integer :: myXrows, myXcols   ! size of local subset of global vector
               integer :: i,j, myi, myj
-              double precision, dimension(:,:), allocatable :: myA, myX
+              double precision, dimension(:,:), allocatable :: myA,myX
+              double precision, dimension(:,:), allocatable :: myM
               integer :: ierr
               character (len=10) :: arg
-              character (len=5), parameter :: fmtstr = "e11.5"
-              character (len=10) :: fname
+              character (*), parameter :: fmtstr = "e11.5"
+              character (len=10) :: fout
+              character (len=50) :: fname
         
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
@@ -20,13 +22,17 @@
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
               double precision :: starttime, laptime, stoptime ! for Wtime
-              
-              integer, allocatable :: seed(:) ! random seed array
-              integer :: randsize
 
+              integer :: r,nr,c,nc
+              integer :: sendr, sendc, recvr, recvc !for scatter calcs
+              
         ! get problem size from input
+        if (command_argument_count() > 0) then
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
+        else
+              print *, 'Need matrix size as parameter'
+        endif
 
         ! start first timer
               starttime = MPI_Wtime()
@@ -38,8 +44,8 @@
 
         ! use file to write extra output
         if (n < 10) then
-              write (fname, "(A4I1)") "proc", me
-              OPEN (unit=7,file= trim(fname))
+              write (fout, "(A4I1)") "proc", me
+              OPEN (unit=7,file= trim(fout))
         endif
 
         ! create as square as possible a grid of processors
@@ -79,25 +85,70 @@
         
               allocate(myA(myArows,myAcols))
               allocate(myX(myXrows,myXcols))
+
+        ! Populate the matrix at root
+        if (me == 0) then
+            allocate(myM(n,n))
+            if (command_argument_count() > 1) then
+              ! use the filename to read matrix in
+              call get_command_argument(2, arg)
+              READ (fname(:),'(a50)') n
+              call readM(fname,n,myM)
+            else
+             ! Fill matrix with rand values between -0.5 and 0.5
+              call getRandM(n,n,myM)
+            endif
+
+            if (n < 10) then
+                print *,'Matrix on root proc:'
+              do myi=1,n
+                do myj=1,n
+                      write (7,"(f8.3)",advance="no"),myM(myi,myj)
+                enddo
+                write (7,"(A1)") ' '
+              enddo
+            endif
+
+        endif
+
+        ! Now scatter to processes
         
-            ! get random seed
-              call random_seed(size=randsize)
-              allocate(seed(randsize))
-         OPEN(89,FILE='/dev/urandom',ACCESS='stream',FORM='UNFORMATTED')
-              READ(89) seed
-              CLOSE(89)
-              call random_seed(put=seed)
-              call random_number(myA)
-              myA = myA - 0.5d+0
-              !do myj=1,myAcols
-                  ! get global index from local index
-              !    call l2g(myj,mycol,n,pcol,nb,j)
-              !    do myi=1,myArows
-                      ! get global index from local index
-              !        call l2g(myi,myrow,n,prow,nb,i)
-              !        if (i <= j) myA(myi,myj) = 1.d+0
-              !    enddo
-              !enddo
+        ! Scatter matrix 
+        sendr = 0
+        recvr = 0
+        recvc = 0
+        do r=1, n, nb
+          sendc = 0
+          ! Number of rows to be sent
+          ! Is this the last row block?
+          nr = nb
+          if (n-r < nb) nr = n-r
+   
+          do c=1, n, nb
+              ! Number of cols to be sent
+              ! Is this the last col block?
+              nc = nb
+              if (n-c < nb) nc = n-c
+   
+              ! Send a nr-by-nc submatrix to process (sendr, sendc)
+              if (me == 0) call Cdgesd2d(icontxt, nr, nc, myM(r,c),
+     &  n, sendr, sendc)
+   
+              if (myrow == sendr .AND. mycol == sendc) then
+                  ! Receive the same data
+                  ! The leading dimension of the local matrix is nrows!
+                  call Cdgerv2d(icontxt, nr,nc, myA(recvr,recvc),
+     &  myArows, 0, 0)
+                  recvc = mod(recvc+nc,myAcols)
+              endif
+   
+              sendr = mod(sendr+1,prow) 
+              sendc = mod(sendc+1,pcol)
+          enddo
+   
+          if (myrow == sendr) recvr = mod(recvr+nr,myArows)
+
+        enddo
 
               !print matrix out
             if (n < 10) then

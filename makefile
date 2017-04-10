@@ -15,7 +15,7 @@ LFLAGS = -Wall $(DEBUG)
 LIBS=-lscalapack -lblas
 
 SRC = $(wildcard $(IDIR)/*.f)
-OBJ = $(ODIR)/gemv.o #$(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))
+OBJ = $(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))
 
 
 $(ODIR)/%.o: $(IDIR)/%.f
