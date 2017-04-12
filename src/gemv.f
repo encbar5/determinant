@@ -58,7 +58,7 @@
               !print *, "prow",prow,"pcol",pcol
         
         ! blocksize - a free parameter.
-              nb = 2 !n/prow
+              nb = 8 !n/prow
 
         ! create the BLACS context
         
@@ -95,7 +95,7 @@
               ! use the filename to read matrix in
               call get_command_argument(2, fname)
               !READ (arg(:),'(a50)') fname
-              print *, 'Reading file ', fname
+              !print *, 'Reading file ', fname
               call readM(fname,n,myM)
             else
              ! Fill matrix with rand values between -0.5 and 0.5
