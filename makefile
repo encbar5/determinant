@@ -12,7 +12,7 @@ CFLAGS=-I$(IDIR)
 DEBUG = -g
 CFLAGS = -Wall -c $(DEBUG)
 LFLAGS = -Wall $(DEBUG)
-LIBS=-lscalapack -lblas
+LIBS=-llapack -lf77blas -lcblas -latlas
 
 SRC = $(wildcard $(IDIR)/*.f)
 OBJ = $(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))

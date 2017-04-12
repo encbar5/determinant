@@ -18,13 +18,13 @@
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
               integer :: info    ! scalapack return value
-              integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
+              !integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
               double precision :: starttime, laptime, stoptime ! for Wtime
 
-              integer :: r,nr,c,nc
-              integer :: sendr, sendc, recvr, recvc !for scatter calcs
+             ! integer :: r,nr,c,nc
+             ! integer :: sendr, sendc, recvr, recvc !for scatter calcs
               
         ! get problem size from input
         if (command_argument_count() > 0) then
@@ -39,8 +39,10 @@
               laptime = starttime
 
         ! Initialize blacs processor grid
-        
-              call blacs_pinfo  (me,procs)
+        me = 0
+        procs = 1
+              !call blacs_pinfo  (me,procs)
+        call MPI_INIT(info)
 
         ! use file to write extra output
         if (n < 10) then
@@ -61,22 +63,24 @@
 
         ! create the BLACS context
         
-              call blacs_get     (0, 0, icontxt)
-              call blacs_gridinit(icontxt, 'R', prow, pcol)
-              call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
+             ! call blacs_get     (0, 0, icontxt)
+             ! call blacs_gridinit(icontxt, 'R', prow, pcol)
+             ! call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
+             myrow = 0
+             mycol = 0
         
         ! Construct local arrays
         
         ! how big is "my" chunk of matrix A?
         
-              myArows = numroc(n, nb, myrow, 0, prow)
-              myAcols = numroc(n, nb, mycol, 0, pcol)
+              myArows = n!umroc(n, nb, myrow, 0, prow)
+              myAcols = n!umroc(n, nb, mycol, 0, pcol)
               !print *, "myrows",myarows,"mycols",myacols
         
         ! how big is "my" chunk of vector x?
         
-              myXrows = numroc(n, nb, myrow, 0, prow)
-              myXcols = numroc(n, nb, mycol, 0, pcol)
+              myXrows = n!umroc(n, nb, myrow, 0, prow)
+              myXcols = n!umroc(n, nb, mycol, 0, pcol)
         
         if (me == 0) write (*,'(I3A1I4A1I4A1)',advance="no"),
      & procs,',',n,',',nb,','
@@ -114,41 +118,43 @@
         ! Now scatter to processes
         
         ! Scatter matrix 
-        sendr = 0
-        recvr = 0
-        recvc = 0
-        do r=1, n, nb
-          sendc = 0
+        !sendr = 0
+        !recvr = 0
+        !recvc = 0
+        !do r=1, n, nb
+        !  sendc = 0
           ! Number of rows to be sent
           ! Is this the last row block?
-          nr = nb
-          if (n-r < nb) nr = n-r
+        !  nr = nb
+        !  if (n-r < nb) nr = n-r
    
-          do c=1, n, nb
+        !  do c=1, n, nb
               ! Number of cols to be sent
               ! Is this the last col block?
-              nc = nb
-              if (n-c < nb) nc = n-c
+        !      nc = nb
+        !      if (n-c < nb) nc = n-c
    
               ! Send a nr-by-nc submatrix to process (sendr, sendc)
-              if (me == 0) call Cdgesd2d(icontxt, nr, nc, myM(r,c),
-     &  n, sendr, sendc)
+        !      if (me == 0) call Cdgesd2d(icontxt, nr, nc, myM(r,c),
+        !&  n, sendr, sendc)
    
-              if (myrow == sendr .AND. mycol == sendc) then
+        !      if (myrow == sendr .AND. mycol == sendc) then
                   ! Receive the same data
                   ! The leading dimension of the local matrix is nrows!
-                  call Cdgerv2d(icontxt, nr,nc, myA(recvr,recvc),
-     &  myArows, 0, 0)
-                  recvc = mod(recvc+nc,myAcols)
-              endif
+        !          call Cdgerv2d(icontxt, nr,nc, myA(recvr,recvc),
+        !&  myArows, 0, 0)
+        !          recvc = mod(recvc+nc,myAcols)
+        !      endif
    
-              sendr = mod(sendr+1,prow) 
-              sendc = mod(sendc+1,pcol)
-          enddo
+        !      sendr = mod(sendr+1,prow) 
+        !      sendc = mod(sendc+1,pcol)
+        !  enddo
    
-          if (myrow == sendr) recvr = mod(recvr+nr,myArows)
+        !  if (myrow == sendr) recvr = mod(recvr+nr,myArows)
 
-        enddo
+        !enddo
+
+        myA = myM
 
               !print matrix out
             if (n < 10) then
@@ -165,10 +171,10 @@
 
         
         ! Prepare array descriptors for ScaLAPACK
-            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt,
-     & myArows, info )
-            call descinit( ides_x, n, n, nb, nb, 0, 0, icontxt,
-     & myXrows, info )
+            !call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt,
+      !& myArows, info )
+            !call descinit( ides_x, n, n, nb, nb, 0, 0, icontxt,
+      !& myXrows, info )
         
             if (me == 0) then
                 stoptime = MPI_Wtime()
@@ -185,8 +191,11 @@
 
         !multiplies A by A^T and stores in X
 
-        call pdgemm('N','T',n,n,n,1.d+0,myA,1,1,ides_a,myA,
-     & 1,1,ides_a,0.d+0,myX,1,1,ides_x)
+      !   call pdgemm('N','T',n,n,n,1.d+0,myA,1,1,ides_a,myA,
+      !& 1,1,ides_a,0.d+0,myX,1,1,ides_x)
+      ! SUBROUTINE
+      ! dgemm(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
+        call dgemm('N','T',n,n,n,1.d+0,myM,n,myA,n,0.0d+0,myX,n)
 
               if (me == 0) then
                 if (info /= 0) then
@@ -207,7 +216,7 @@
 
         ! Deallocate A
         
-              deallocate(myA)
+              deallocate(myA,myM)
 
             if (me == 0) then
                 stoptime = MPI_Wtime()
@@ -219,7 +228,8 @@
 
         ! Now do Cholesky decomposition
         ! PDPOTRF (UPLO, N, A, IA, JA, DESCA, INFO)
-        call pdpotrf( 'L', n, myX, 1, 1, ides_x, info )
+        !call pdpotrf( 'L', n, myX, 1, 1, ides_x, info )
+        call dpotrf( 'L', n, myX, n, info )
 
         !if info is greater than 0 this means that determinant is zero?
 
@@ -286,8 +296,8 @@
 
         ! End blacs for processors that are used
         
-              call blacs_gridexit(icontxt)
-              call blacs_exit(0)
+           !   call blacs_gridexit(icontxt)
+           !   call blacs_exit(0)
         
             if (me == 0) then
                 stoptime = MPI_Wtime()
@@ -298,6 +308,8 @@
               if (me == 0) then
                 print *,'Determinant = ', globdet
               endif
+
+              call MPI_FINALIZE(info)
 
         contains
         
