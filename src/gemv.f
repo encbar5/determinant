@@ -57,13 +57,14 @@
               !print *, "prow",prow,"pcol",pcol
         
         ! blocksize - a free parameter.
-              nb = n/prow
+              nb = 2 !n/prow
 
         ! create the BLACS context
         
               call blacs_get     (0, 0, icontxt)
               call blacs_gridinit(icontxt, 'R', prow, pcol)
               call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
+              print *, 'myrow',myrow,'mycol',mycol
         
         ! Construct local arrays
         
@@ -100,7 +101,7 @@
             endif
 
             if (n < 10) then
-                print *,'Matrix on root proc:'
+                write (7,"(A)"),'Matrix on root proc:'
               do myi=1,n
                 do myj=1,n
                       write (7,"(f8.3)",advance="no"),myM(myi,myj)
@@ -115,43 +116,48 @@
         
         ! Scatter matrix 
         sendr = 0
-        recvr = 0
-        recvc = 0
+        recvr = 1
+        recvc = 1
         do r=1, n, nb
           sendc = 0
           ! Number of rows to be sent
           ! Is this the last row block?
           nr = nb
-          if (n-r < nb) nr = n-r
+          if (n-r+1 < nb) nr = n-r+1
    
           do c=1, n, nb
               ! Number of cols to be sent
               ! Is this the last col block?
               nc = nb
-              if (n-c < nb) nc = n-c
+              if (n-c+1 < nb) nc = n-c+1
    
               ! Send a nr-by-nc submatrix to process (sendr, sendc)
-              if (me == 0) call Cdgesd2d(icontxt, nr, nc, myM(r,c),
+              if (me == 0) print *, 'nr',nr,'nc',nc,'r,',r,'c',c,
+     & 'sendr',sendr, 'sendc',sendc
+              if (me == 0) call dgesd2d(icontxt, nr, nc, myM(r,c),
      &  n, sendr, sendc)
    
               if (myrow == sendr .AND. mycol == sendc) then
                   ! Receive the same data
                   ! The leading dimension of the local matrix is nrows!
-                  call Cdgerv2d(icontxt, nr,nc, myA(recvr,recvc),
+                print *, 'nr',nr,'nc',nc,'recvr,',recvr,
+     & 'recvc',recvc,'sendr',sendr, 'sendc',sendc
+                  call dgerv2d(icontxt, nr,nc, myA(recvr,recvc),
      &  myArows, 0, 0)
-                  recvc = mod(recvc+nc,myAcols)
+                  recvc = mod(recvc+nc-1,myAcols) + 1
               endif
    
-              sendr = mod(sendr+1,prow) 
               sendc = mod(sendc+1,pcol)
           enddo
    
-          if (myrow == sendr) recvr = mod(recvr+nr,myArows)
+          if (myrow == sendr) recvr = mod(recvr+nr-1,myArows) + 1
+          sendr = mod(sendr+1,prow)
 
         enddo
 
               !print matrix out
             if (n < 10) then
+                write (7,"(A)"),'Local Matrix:'
               do myi=1,myArows
                 do myj=1,myAcols
                       write (7,"(f8.3)",advance="no"),myA(myi,myj)
