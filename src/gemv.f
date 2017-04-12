@@ -27,11 +27,12 @@
               integer :: sendr, sendc, recvr, recvc !for scatter calcs
               
         ! get problem size from input
-        if (command_argument_count() > 1) then
+        if (command_argument_count() > 0) then
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
         else
               print *, 'Need matrix size as parameter'
+              call EXIT(1)
         endif
 
         ! start first timer
@@ -90,10 +91,11 @@
         ! Populate the matrix at root
         if (me == 0) then
             allocate(myM(n,n))
-            if (command_argument_count() > 2) then
+            if (command_argument_count() > 1) then
               ! use the filename to read matrix in
-              call get_command_argument(2, arg)
-              READ (arg(:),'(a50)') fname
+              call get_command_argument(2, fname)
+              !READ (arg(:),'(a50)') fname
+              print *, 'Reading file ', fname
               call readM(fname,n,myM)
             else
              ! Fill matrix with rand values between -0.5 and 0.5
