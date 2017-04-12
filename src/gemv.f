@@ -254,12 +254,12 @@
         
         ! Calculate determinant based on diagonal
 
-            det = 1.d+0
+            det = 0.d+0
             do myj=1,myXcols
                 call l2g(myj,mycol,pcol,nb,j)
                 do myi=1,myXrows
                     call l2g(myi,myrow,prow,nb,i)
-                    if (j == i) det = det * myX(myi,myj)
+                    if (j == i) det = det + log10(abs(myX(myi,myj)))
                 enddo
             enddo
 
@@ -274,7 +274,7 @@
         
         
               !    MPI_REDUCE(SENDBUF, RECVBUF, COUNT, DATATYPE, OP, ROOT, COMM, IERROR)
-              call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_PROD, 0,
+              call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_SUM, 0,
      &  MPI_COMM_WORLD, ierr)
         
             if (me == 0) then
@@ -300,7 +300,7 @@
             endif
 
               if (me == 0) then
-                print *,'Determinant = ', globdet
+                print *,'Log(|Det|) = ', globdet
               endif
 
         contains
