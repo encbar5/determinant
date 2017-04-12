@@ -27,7 +27,7 @@
               integer :: sendr, sendc, recvr, recvc !for scatter calcs
               
         ! get problem size from input
-        if (command_argument_count() > 0) then
+        if (command_argument_count() > 1) then
               call get_command_argument(1, arg)
               READ (arg(:),'(i10)') n
         else
@@ -43,7 +43,7 @@
               call blacs_pinfo  (me,procs)
 
         ! use file to write extra output
-        if (n < 10) then
+        if (n < 17) then
               write (fout, "(A4I1)") "proc", me
               OPEN (unit=7,file= trim(fout))
         endif
@@ -64,7 +64,7 @@
               call blacs_get     (0, 0, icontxt)
               call blacs_gridinit(icontxt, 'R', prow, pcol)
               call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
-              print *, 'myrow',myrow,'mycol',mycol
+              !print *, 'myrow',myrow,'mycol',mycol
         
         ! Construct local arrays
         
@@ -90,17 +90,17 @@
         ! Populate the matrix at root
         if (me == 0) then
             allocate(myM(n,n))
-            if (command_argument_count() > 1) then
+            if (command_argument_count() > 2) then
               ! use the filename to read matrix in
               call get_command_argument(2, arg)
-              READ (fname(:),'(a50)') n
+              READ (arg(:),'(a50)') fname
               call readM(fname,n,myM)
             else
              ! Fill matrix with rand values between -0.5 and 0.5
               call getRandM(n,n,myM)
             endif
 
-            if (n < 10) then
+            if (n < 17) then
                 write (7,"(A)"),'Matrix on root proc:'
               do myi=1,n
                 do myj=1,n
@@ -152,7 +152,7 @@
         enddo
 
               !print matrix out
-            if (n < 10) then
+            if (n < 17) then
                 write (7,"(A)"),'Local Matrix:'
               do myi=1,myArows
                 do myj=1,myAcols
@@ -196,7 +196,7 @@
                 endif
               endif
         
-              if (n < 10) then
+              if (n < 17) then
               write (7,"(A6)"),'Result'
               !print matrix out
               do myi=1,myXrows
@@ -231,7 +231,7 @@
                 endif
               endif
         
-              if (n < 10) then
+              if (n < 17) then
               write (7,"(A13)"),'Decomposition'
               !print matrix out
               do myi=1,myXrows
