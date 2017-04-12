@@ -132,16 +132,12 @@
               if (n-c+1 < nb) nc = n-c+1
    
               ! Send a nr-by-nc submatrix to process (sendr, sendc)
-              if (me == 0) print *, 'nr',nr,'nc',nc,'r,',r,'c',c,
-     & 'sendr',sendr, 'sendc',sendc
               if (me == 0) call dgesd2d(icontxt, nr, nc, myM(r,c),
      &  n, sendr, sendc)
    
               if (myrow == sendr .AND. mycol == sendc) then
                   ! Receive the same data
                   ! The leading dimension of the local matrix is nrows!
-                print *, 'nr',nr,'nc',nc,'recvr,',recvr,
-     & 'recvc',recvc,'sendr',sendr, 'sendc',sendc
                   call dgerv2d(icontxt, nr,nc, myA(recvr,recvc),
      &  myArows, 0, 0)
                   recvc = mod(recvc+nc-1,myAcols) + 1
@@ -258,9 +254,9 @@
 
             det = 1.d+0
             do myj=1,myXcols
-                call l2g(myj,mycol,n,pcol,nb,j)
+                call l2g(myj,mycol,pcol,nb,j)
                 do myi=1,myXrows
-                    call l2g(myi,myrow,n,prow,nb,i)
+                    call l2g(myi,myrow,prow,nb,i)
                     if (j == i) det = det * myX(myi,myj)
                 enddo
             enddo
@@ -309,11 +305,11 @@
         
         ! convert global index to local index in block-cyclic distribution
         
-           subroutine g2l(i,n,np,nb,p,il)
+           subroutine g2l(i,np,nb,p,il)
         
            implicit none
            integer, intent(in) :: i    ! global array index, input
-           integer, intent(in) :: n    ! global array dimension, input
+           !integer, intent(in) :: n    ! global array dimension, input
            integer, intent(in) :: np   ! processor array dimension, input
            integer, intent(in) :: nb   ! block size, input
            integer, intent(out):: p    ! processor array index, output
@@ -329,12 +325,12 @@
         
         ! convert local index to global index in block-cyclic distribution
         
-           subroutine l2g(il,p,n,np,nb,i)
+           subroutine l2g(il,p,np,nb,i)
         
            implicit none
            integer :: il   ! local array index, input
            integer :: p    ! processor array index, input
-           integer :: n    ! global array dimension, input
+           !integer :: n    ! global array dimension, input
            integer :: np   ! processor array dimension, input
            integer :: nb   ! block size, input
            integer :: i    ! global array index, output
