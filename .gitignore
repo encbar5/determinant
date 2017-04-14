@@ -1,6 +1,7 @@
 # Prerequisites
 *.d
 output/*
+input/*
 
 # Compiled Object files
 *.slo
