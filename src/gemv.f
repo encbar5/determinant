@@ -58,7 +58,13 @@
               !print *, "prow",prow,"pcol",pcol
         
         ! blocksize - a free parameter.
-              nb = 8 !n/prow
+        if (command_argument_count() > 2) then
+              call get_command_argument(3, arg)
+              READ (arg(:),'(i10)') nb
+        else
+              nb = n/prow
+        endif
+
 
         ! create the BLACS context
         

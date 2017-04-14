@@ -1,10 +1,12 @@
 #!/bin/bash
-# for each number of procs 
+# cores per node
+cpn=4
+# for each number of procs
  for i in 1 2 4 8 16 32; do
-            if [[ $i -lt 20 ]]; then
+            if [[ $i -lt $cpn ]]; then
                 ppn=$i
             else
-                ppn=20
+                ppn=$cpn
             fi
             #replace parameters in template sbatch file
             sed -e "s/\#SBATCH --ntasks=.*/\#SBATCH --ntasks=$i/;s/\#SBATCH --ntasks-per-node=.*/\#SBATCH --ntasks-per-node=$ppn/;s/^N_PROC=.*/N_PROC=$i/" $1 > $1.out

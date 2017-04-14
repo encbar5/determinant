@@ -198,6 +198,9 @@
 #
 #SBATCH --mail-type=FAIL
 #
+# Set upper memory limit per node, in MB
+#SBATCH --mem 512
+#
 ##################################################################
 #
 # UNIX SHELL COMMANDS
@@ -211,7 +214,7 @@ echo ""
 # Set the runtime environment to match the compile environment.
 
 module load OpenMPI
-module load ScaLAPACK
+module load ATLAS
 
 # Run the executable, redirecting input from the given file.
 # The date commands and the time command help track runtime
@@ -228,6 +231,9 @@ module load ScaLAPACK
 
 N_PROC=1
 
-for x in 100 500 1000 2000 3000 4000 5000; do
-    mpirun -n $N_PROC --bind-to core /home/oucs001/Competition/fortran/detChol.out $x
+# for x in 100 500 1000 2000 3000 4000 5000; do
+for x in 1000 5000; do
+    for nb in 4 8 16 24 32 64 125; do
+        mpirun -n $N_PROC --bind-to core /home/oucs001/Competition/fortran/detChol.out $x input/m${x}x${x}.bin  $nb
+    done
 done
