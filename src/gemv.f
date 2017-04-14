@@ -95,8 +95,7 @@
             allocate(myM(n,n))
             if (command_argument_count() > 1) then
               ! use the filename to read matrix in
-              call get_command_argument(2, arg)
-              READ (fname(:),'(a50)') n
+              call get_command_argument(2, fname)
               call readM(fname,n,myM)
             else
              ! Fill matrix with rand values between -0.5 and 0.5
