@@ -213,8 +213,8 @@ echo ""
 
 # Set the runtime environment to match the compile environment.
 
-module load OpenMPI
 module load ATLAS
+module load OpenMPI
 
 # Run the executable, redirecting input from the given file.
 # The date commands and the time command help track runtime
