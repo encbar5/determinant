@@ -11,7 +11,6 @@
               integer, dimension(:), allocatable :: myX
               integer :: ierr
               character (len=10) :: arg
-              character (*), parameter :: fmtstr = "e11.5"
               character (len=10) :: fout
               character (len=50) :: fname
         
@@ -21,7 +20,7 @@
               integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
-              double precision :: starttime, laptime, stoptime ! for Wtime
+              integer :: starttime, laptime, cr ! for timing
 
               integer :: r,nr,c,nc
               integer :: sendr, sendc, recvr, recvc !for scatter calcs
@@ -36,8 +35,9 @@
         endif
 
         ! start first timer
-              starttime = MPI_Wtime()
-              laptime = starttime
+        call system_clock(count_rate=cr)
+        call system_clock(starttime)
+        laptime = starttime
 
         ! Initialize blacs processor grid
         
@@ -175,15 +175,8 @@
      & myArows, info )
             call descinit( ides_x, n, 1, nb, nb, 0, 0, icontxt,
      & myXrows, info )
-         
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                write (*,"("//fmtstr//"a1)",advance="no"),
-     & stoptime-laptime,','
-                !print *, 'Setup time: ',stoptime-laptime
-                laptime = stoptime
-            endif
-
+        
+            if (me == 0) call logtime(laptime,cr,.false.)
         ! Call ScaLAPACK library routine
         !  SUBROUTINE PDGETRF( M, N, A, IA, JA, DESCA, IPIV, INFO )
         call pdgetrf(n,n,myA,1,1,ides_a,myX,info)
@@ -210,14 +203,8 @@
               enddo
               write (7,"(A1)") ' '
             endif
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                write (*,"("//fmtstr//"a1)",advance="no"),
-     & stoptime-laptime,','
-                !print *, 'Matrix decomp time: ',stoptime-laptime
-                laptime = stoptime
-            endif
 
+            if (me == 0) call logtime(laptime,cr,.false.)
         
         ! Calculate determinant based on diagonal
 
@@ -231,26 +218,15 @@
             enddo
 
             !print *, 'Local determinant ', det, 'proc', me
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                write (*,"("//fmtstr//"a1)",advance="no"),
-     & stoptime-laptime,','
-                !print *, 'Determinant calc time: ',stoptime-laptime
-                laptime = stoptime
-            endif
+            if (me == 0) call logtime(laptime,cr,.false.)
         
         
               !    MPI_REDUCE(SENDBUF, RECVBUF, COUNT, DATATYPE, OP, ROOT, COMM, IERROR)
               call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_SUM, 0,
      &  MPI_COMM_WORLD, ierr)
         
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                write (*,"("//fmtstr//"a1)",advance="no"),
-     & stoptime-laptime,','
-                !print *, 'Reduction time: ',stoptime-laptime
-                laptime = stoptime
-            endif
+            if (me == 0) call logtime(laptime,cr,.false.)
+
         ! Deallocate X
         
               deallocate(myA,myX)
@@ -260,11 +236,7 @@
               call blacs_gridexit(icontxt)
               call blacs_exit(0)
         
-            if (me == 0) then
-                stoptime = MPI_Wtime()
-                write (*,"("//fmtstr//")"),stoptime - starttime
-                !print *, 'Total time: ',stoptime - starttime
-            endif
+            if (me == 0) call logtime(starttime,cr,.true.)
 
               if (me == 0) then
                 print *,'Log(|Det|) = ', globdet
@@ -274,41 +246,64 @@
         
         ! convert global index to local index in block-cyclic distribution
         
-           subroutine g2l(i,np,nb,p,il)
-        
-           implicit none
-           integer, intent(in) :: i    ! global array index, input
-           !integer, intent(in) :: n    ! global array dimension, input
-           integer, intent(in) :: np   ! processor array dimension, input
-           integer, intent(in) :: nb   ! block size, input
-           integer, intent(out):: p    ! processor array index, output
-           integer, intent(out):: il   ! local array index, output
-           integer :: im1
-        
-           im1 = i-1
-           p   = mod((im1/nb),np)
-           il  = (im1/(np*nb))*nb + mod(im1,nb) + 1
-        
-           return
-           end subroutine g2l
+        subroutine g2l(i,np,nb,p,il)
+
+                implicit none
+                integer, intent(in) :: i    ! global array index, input
+                !integer, intent(in) :: n    ! global array dimension, input
+                integer, intent(in) :: np   ! processor array dimension, input
+                integer, intent(in) :: nb   ! block size, input
+                integer, intent(out):: p    ! processor array index, output
+                integer, intent(out):: il   ! local array index, output
+                integer :: im1
+
+                im1 = i-1
+                p   = mod((im1/nb),np)
+                il  = (im1/(np*nb))*nb + mod(im1,nb) + 1
+
+                return
+        end subroutine g2l
         
         ! convert local index to global index in block-cyclic distribution
         
-           subroutine l2g(il,p,np,nb,i)
-        
-           implicit none
-           integer :: il   ! local array index, input
-           integer :: p    ! processor array index, input
-           !integer :: n    ! global array dimension, input
-           integer :: np   ! processor array dimension, input
-           integer :: nb   ! block size, input
-           integer :: i    ! global array index, output
-           integer :: ilm1
-        
-           ilm1 = il-1
-           i    = (((ilm1/nb) * np) + p)*nb + mod(ilm1,nb) + 1
-        
-           return
-           end subroutine l2g
+        subroutine l2g(il,p,np,nb,i)
+
+                implicit none
+                integer :: il   ! local array index, input
+                integer :: p    ! processor array index, input
+                !integer :: n    ! global array dimension, input
+                integer :: np   ! processor array dimension, input
+                integer :: nb   ! block size, input
+                integer :: i    ! global array index, output
+                integer :: ilm1
+
+                ilm1 = il-1
+                i    = (((ilm1/nb) * np) + p)*nb + mod(ilm1,nb) + 1
+
+                return
+        end subroutine l2g
+
+        subroutine logtime(laptime,cr,eol)
+
+                implicit none
+                integer, intent(inout) :: laptime
+                integer, intent(in)    :: cr
+                logical, optional      :: eol
+                integer :: stoptime
+
+                call system_clock(stoptime)
+
+                if(eol) then
+                        write (*,"(e11.5)"),
+     &                      real(stoptime-laptime)/cr
+                else
+                        write(*,"(e11.5a1)",advance="no"),
+     &                      real(stoptime-laptime)/cr,','
+                        laptime = stoptime
+                endif
+
+                return
+                end subroutine logtime
+
         
         end program gemv1
