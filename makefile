@@ -12,7 +12,7 @@ CFLAGS=-I$(IDIR)
 DEBUG = -g
 CFLAGS = -Wall -c $(DEBUG)
 LFLAGS = -Wall $(DEBUG)
-LIBS=-lscalapack -lblas
+LIBS=-L/home/oucs001/myscalapack/lib -lscalapack -lf77blas -lcblas -latlas
 
 SRC = $(wildcard $(IDIR)/*.f)
 OBJ = $(patsubst $(IDIR)/%.f,$(ODIR)/%.o,$(SRC))
