@@ -20,6 +20,7 @@
               integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
+              double precision, parameter :: thresh = 731.d+0
               integer :: starttime, laptime, cr ! for timing
 
               integer :: r,nr,c,nc
@@ -191,10 +192,13 @@
         !  SUBROUTINE PDGETRF( M, N, A, IA, JA, DESCA, IPIV, INFO )
         call pdgetrf(n,n,myA,1,1,ides_a,myX,info)
 
-              if (me == 0) then
-                if (info /= 0) then
-                     print *, 'Error -- info = ', info
-                endif
+              if (info /= 0) then
+                !if (me == 0) then
+                    !print *, 'Error -- info = ', info
+                !endif
+
+                GOTO 199 ! Cleanup
+
               endif
         
               !print matrix out
@@ -234,12 +238,12 @@
               !    MPI_REDUCE(SENDBUF, RECVBUF, COUNT, DATATYPE, OP, ROOT, COMM, IERROR)
               call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_SUM, 0,
      &  MPI_COMM_WORLD, ierr)
-        
+
             if (me == 0) call logtime(laptime,cr,.false.)
 
         ! Deallocate X
         
-              deallocate(myA,myX)
+199         deallocate(myA,myX)
 
         ! End blacs for processors that are used
         
@@ -249,7 +253,15 @@
             if (me == 0) call logtime(starttime,cr,.true.)
 
               if (me == 0) then
-                print *,'Log(|Det|) = ', globdet
+                if (info /= 0) then
+                    print *, 'Determinant = 0.'
+                    print *, ' Reason: factorization failed'
+                else if (globdet.LT.thresh) then
+                    print *, 'Determinant = 0.'
+                    print *, ' Reason: threshold reached'
+                else
+                    print *,'Log(|Det|) = ', globdet
+                endif
               endif
 
         contains
