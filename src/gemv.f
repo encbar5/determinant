@@ -2,7 +2,7 @@
               use mpi
               use readMatrix
               implicit none
-        
+
               integer :: n, nb    ! problem size and block size
               integer :: myArows, myAcols   ! size of local subset of global matrix
               integer :: myXrows, myXcols   ! size of local subset of global vector
@@ -13,19 +13,19 @@
               character (len=10) :: arg
               character (len=10) :: fout
               character (len=50) :: fname
-        
+
               integer, external :: numroc   ! blacs routine
               integer :: me, procs, icontxt, prow, pcol, myrow, mycol  ! blacs data
               integer :: info    ! scalapack return value
               integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
-              double precision, parameter :: thresh = 731.d+0
+              double precision, parameter :: thresh = 739.d+0
               integer :: starttime, laptime, cr ! for timing
 
               integer :: r,nr,c,nc
               integer :: sendr, sendc, recvr, recvc !for scatter calcs
-              
+
         ! get problem size from input
         if (command_argument_count() > 0) then
               call get_command_argument(1, arg)
@@ -41,7 +41,7 @@
         laptime = starttime
 
         ! Initialize blacs processor grid
-        
+
               call blacs_pinfo  (me,procs)
 
         ! use file to write extra output
@@ -51,13 +51,13 @@
         endif
 
         ! create as square as possible a grid of processors
-        
+
               dims = 0
               call MPI_Dims_create(procs, 2, dims, ierr)
               prow = dims(1)
               pcol = dims(2)
               !print *, "prow",prow,"pcol",pcol
-        
+
         ! blocksize - a free parameter.
         if (command_argument_count() > 2) then
               call get_command_argument(3, arg)
@@ -68,30 +68,30 @@
 
 
         ! create the BLACS context
-        
+
               call blacs_get     (0, 0, icontxt)
               call blacs_gridinit(icontxt, 'R', prow, pcol)
               call blacs_gridinfo(icontxt, prow, pcol, myrow, mycol)
               !print *, 'myrow',myrow,'mycol',mycol
-        
+
         ! Construct local arrays
-        
+
         ! how big is "my" chunk of matrix A?
-        
+
               myArows = numroc(n, nb, myrow, 0, prow)
               myAcols = numroc(n, nb, mycol, 0, pcol)
               !print *, "myrows",myarows,"mycols",myacols
-        
+
         ! how big is "my" chunk of vector x?
-        
+
               myXrows = numroc(n, nb, myrow, 0, prow) + nb
               myXcols = 1
-        
+
         if (me == 0) write (*,'(I3A1I4A1I4A1)',advance="no"),
      & procs,',',n,',',nb,','
 
         ! Initialize local arrays
-        
+
               allocate(myA(myArows,myAcols))
               allocate(myX(myXrows))
 
@@ -126,8 +126,8 @@
         endif
 
         ! Now scatter to processes
-        
-        ! Scatter matrix 
+
+        ! Scatter matrix
         sendr = 0
         recvr = 1
         recvc = 1
@@ -137,17 +137,17 @@
           ! Is this the last row block?
           nr = nb
           if (n-r+1 < nb) nr = n-r+1
-   
+
           do c=1, n, nb
               ! Number of cols to be sent
               ! Is this the last col block?
               nc = nb
               if (n-c+1 < nb) nc = n-c+1
-   
+
               ! Send a nr-by-nc submatrix to process (sendr, sendc)
               if (me == 0) call dgesd2d(icontxt, nr, nc, myM(r,c),
      &  n, sendr, sendc)
-   
+
               if (myrow == sendr .AND. mycol == sendc) then
                   ! Receive the same data
                   ! The leading dimension of the local matrix is nrows!
@@ -155,10 +155,10 @@
      &  myArows, 0, 0)
                   recvc = mod(recvc+nc-1,myAcols) + 1
               endif
-   
+
               sendc = mod(sendc+1,pcol)
           enddo
-   
+
           if (myrow == sendr) recvr = mod(recvr+nr-1,myArows) + 1
           sendr = mod(sendr+1,prow)
 
@@ -180,13 +180,13 @@
 
               myX = 0
 
-        
-        ! Prepare array descriptors for ScaLAPACK 
-            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt, 
+
+        ! Prepare array descriptors for ScaLAPACK
+            call descinit( ides_a, n, n, nb, nb, 0, 0, icontxt,
      & myArows, info )
             call descinit( ides_x, n, 1, nb, nb, 0, 0, icontxt,
      & myXrows, info )
-        
+
             if (me == 0) call logtime(laptime,cr,.false.)
         ! Call ScaLAPACK library routine
         !  SUBROUTINE PDGETRF( M, N, A, IA, JA, DESCA, IPIV, INFO )
@@ -197,15 +197,15 @@
                     !print *, 'Error -- info = ', info
                 !endif
 
-                GOTO 199 ! Cleanup
+                !GOTO 199 ! Cleanup
 
               endif
-        
+
               !print matrix out
             if (n < 17) then
               write (7,"(A13)") 'Decomposition'
               do myi=1,myArows
-                do myj=1,myAcols 
+                do myj=1,myAcols
                       write (7,"(f8.3)",advance="no"),myA(myi,myj)
                 enddo
                 write (7,"(A1)") ' '
@@ -219,7 +219,7 @@
             endif
 
             if (me == 0) call logtime(laptime,cr,.false.)
-        
+
         ! Calculate determinant based on diagonal
 
             det = 0.d+0
@@ -233,8 +233,8 @@
 
             !print *, 'Local determinant ', det, 'proc', me
             if (me == 0) call logtime(laptime,cr,.false.)
-        
-        
+
+
               !    MPI_REDUCE(SENDBUF, RECVBUF, COUNT, DATATYPE, OP, ROOT, COMM, IERROR)
               call MPI_Reduce(det, globdet, 1, MPI_DOUBLE, MPI_SUM, 0,
      &  MPI_COMM_WORLD, ierr)
@@ -242,14 +242,14 @@
             if (me == 0) call logtime(laptime,cr,.false.)
 
         ! Deallocate X
-        
+
 199         deallocate(myA,myX)
 
         ! End blacs for processors that are used
-        
+
               call blacs_gridexit(icontxt)
               call blacs_exit(0)
-        
+
             if (me == 0) call logtime(starttime,cr,.true.)
 
               if (me == 0) then
@@ -259,15 +259,15 @@
                 else if (globdet.LT.thresh) then
                     print *, 'Determinant = 0.'
                     print *, ' Reason: threshold reached'
-                else
-                    print *,'Log(|Det|) = ', globdet
+                !else
                 endif
+                print *,'Log(|Det|) = ', globdet
               endif
 
         contains
-        
+
         ! convert global index to local index in block-cyclic distribution
-        
+
         subroutine g2l(i,np,nb,p,il)
 
                 implicit none
@@ -285,9 +285,9 @@
 
                 return
         end subroutine g2l
-        
+
         ! convert local index to global index in block-cyclic distribution
-        
+
         subroutine l2g(il,p,np,nb,i)
 
                 implicit none
@@ -327,5 +327,5 @@
                 return
                 end subroutine logtime
 
-        
+
         end program gemv1
