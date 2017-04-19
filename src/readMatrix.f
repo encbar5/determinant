@@ -33,7 +33,7 @@
       subroutine getZeroM(n,m,Mat)
         implicit none
         integer, intent(in) :: n,m
-        integer :: i,j
+        integer :: i,j,k
         double precision, intent(out) :: Mat(n,m)
         integer, allocatable :: seed(:)
         integer :: randsize
@@ -50,20 +50,18 @@
 
         ! Get a random number
         call random_number(r)
-        i = floor( r*n )
+        i = floor( r*n ) + 1
 
         ! Get another
-        call random_number(r)
-        j = floor( r*n )
+        do
+          call random_number(r)
+          j = floor( r*n ) + 1
+          if (j.NE.i) exit ! Make sure i and j are not the same row
+        enddo
 
-        Print *, Mat
         ! Copy a row
         Mat(i,1:m) = Mat(j,1:m)
 
-        print*,"row",j,"copied to row",i
-
-        ! Output matrix to debug
-        Print *, Mat
       end subroutine getZeroM
 
 
