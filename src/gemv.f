@@ -102,7 +102,11 @@
               call get_command_argument(2, fname)
               !READ (arg(:),'(a50)') fname
               !print *, 'Reading file ', fname
-              call readM(fname,n,myM)
+              if (fname == 'zero') then
+                call getZeroM(n,n,myM)
+              else
+                call readM(fname,n,myM)
+              endif
             else
              ! Fill matrix with rand values between -0.5 and 0.5
               call getRandM(n,n,myM)
