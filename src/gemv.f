@@ -20,7 +20,7 @@
               integer, dimension(9)  :: ides_a, ides_x ! matrix descriptors
               integer, dimension(2) :: dims
               double precision :: det, globdet ! determinant and global
-              double precision, parameter :: thresh = 731.d+0
+              double precision, parameter :: thresh = 739.d+0
               integer :: starttime, laptime, cr ! for timing
 
               integer :: r,nr,c,nc
