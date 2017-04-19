@@ -228,7 +228,7 @@
 
               if (info /= 0) then
                      !print *, 'Error -- info = ', info
-                     GOTO 199
+                     !GOTO 199
               endif
 
               if (n < 17) then
@@ -283,9 +283,9 @@
                 else if (globdet.LT.thresh) then
                     print *, 'Determinant = 0.'
                     print *, ' Reason: threshold reached'
-                else
-                    print *,'Log(|Det|) = ', globdet
+                !else
                 endif
+                print *,'Log(|Det|) = ', globdet
               endif
 
         contains
